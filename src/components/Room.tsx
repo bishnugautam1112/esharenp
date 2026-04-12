@@ -316,20 +316,29 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
 
   const startLocalWatch = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && sharedVideoRef.current) {
-      const url = URL.createObjectURL(file);
-      sharedVideoRef.current.src = url;
-      sharedVideoRef.current.play().then(() => {
-        const videoElement = sharedVideoRef.current as any;
-        const stream = videoElement.captureStream ? videoElement.captureStream() : videoElement.mozCaptureStream ? videoElement.mozCaptureStream() : null;
-        if (stream) {
-          peerState.startSecondaryStream(stream);
-          activeConnection?.send({ type: 'watch-start' });
-          setIsWatchHost(true);
-        } else {
-          console.error("captureStream not supported");
+    if (file) {
+      setIsWatchHost(true);
+      
+      setTimeout(() => {
+        if (sharedVideoRef.current) {
+          const url = URL.createObjectURL(file);
+          sharedVideoRef.current.src = url;
+          sharedVideoRef.current.play().then(() => {
+            const videoElement = sharedVideoRef.current as any;
+            const stream = videoElement.captureStream ? videoElement.captureStream() : videoElement.mozCaptureStream ? videoElement.mozCaptureStream() : null;
+            if (stream) {
+              peerState.startSecondaryStream(stream);
+              activeConnection?.send({ type: 'watch-start' });
+            } else {
+              console.error("captureStream not supported");
+              peerState.setState(s => ({ ...s, error: "Local watch together is not supported on this browser." }));
+            }
+          }).catch(err => {
+            console.error(err);
+            peerState.setState(s => ({ ...s, error: "Failed to play local video." }));
+          });
         }
-      }).catch(console.error);
+      }, 100);
     }
     if (watchTogetherInputRef.current) watchTogetherInputRef.current.value = '';
     setShowWatchMenu(false);
@@ -377,6 +386,17 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
       
       {/* Main Content (Video Area) */}
       <div ref={videoContainerRef} className={cn("flex-1 flex flex-col min-w-0 border-b md:border-b-0 md:border-r border-neutral-800 relative", isFullscreen ? "bg-black" : "bg-neutral-950/50 h-[50vh] md:h-auto")}>
+        
+        {/* Error Banner */}
+        {peerState.error && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3 backdrop-blur-md">
+            <span className="text-sm font-medium">{peerState.error}</span>
+            <button onClick={peerState.clearError} className="hover:bg-red-600 p-1 rounded-md transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Header Overlay */}
         {!isFullscreen && !hasSecondary && (
           <div className="absolute top-0 left-0 right-0 h-20 flex items-start justify-between px-4 md:px-6 pt-4 bg-gradient-to-b from-black/80 to-transparent z-30 pointer-events-none">
@@ -400,9 +420,9 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
               {hasSecondary ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
                    {watchUrl ? (
-                     <video ref={sharedVideoRef} src={watchUrl} autoPlay className="w-full h-full object-contain" controls={false} />
+                     <video ref={sharedVideoRef} src={watchUrl} autoPlay className="w-full h-full object-contain" controls={true} />
                    ) : isWatchHost ? (
-                     <video ref={sharedVideoRef} className="w-full h-full object-contain" controls={false} />
+                     <video ref={sharedVideoRef} className="w-full h-full object-contain" controls={true} />
                    ) : peerState.remoteSecondaryStream ? (
                      <video ref={secondaryVideoRef} autoPlay playsInline className="w-full h-full object-contain transition-transform duration-200" style={{ transform: `scale(${screenZoom}) translate(${pan.x}px, ${pan.y}px)` }} />
                    ) : peerState.localSecondaryStream ? (

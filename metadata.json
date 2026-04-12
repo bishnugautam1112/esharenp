@@ -1,5 +1,5 @@
 {
-  "name": "esharenp",
+  "name": "Remix: esharenp",
   "description": "A peer-to-peer app for sharing files, text chatting, and voice/video calls.",
   "requestFramePermissions": [
     "camera",

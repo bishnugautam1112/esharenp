@@ -229,6 +229,10 @@ export function usePeer() {
 
   const shareScreen = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        setState(s => ({ ...s, error: "Screen sharing is not supported on this device/browser." }));
+        return;
+      }
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       startSecondaryStream(stream);
       setState(s => ({ ...s, isScreenSharing: true }));
@@ -241,8 +245,9 @@ export function usePeer() {
       stream.getVideoTracks()[0].addEventListener('ended', () => {
         stopScreenShare();
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sharing screen:", err);
+      setState(s => ({ ...s, error: err.message || "Failed to share screen." }));
     }
   };
 
@@ -283,6 +288,10 @@ export function usePeer() {
     }
   };
 
+  const clearError = () => {
+    setState(s => ({ ...s, error: null }));
+  };
+
   return {
     ...state,
     setState,
@@ -298,5 +307,6 @@ export function usePeer() {
     streamLocalMedia,
     startSecondaryStream,
     stopSecondaryStream,
+    clearError,
   };
 }

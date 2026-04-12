@@ -28,6 +28,7 @@ export default function App() {
     peerState.connections.forEach(c => c.close());
     setInRoom(false);
     setTargetId(null);
+    peerState.clearError();
   };
 
   if (inRoom) {
