@@ -65,7 +65,23 @@ export function usePeer() {
         return;
       }
 
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      const isVideo = call.metadata?.video ?? true;
+      const isAudio = call.metadata?.audio ?? true;
+      const resolution = call.metadata?.resolution ?? 'default';
+
+      let videoConstraints: boolean | MediaTrackConstraints = isVideo;
+      if (isVideo) {
+        videoConstraints = {};
+        if (resolution === '720p') {
+          videoConstraints.width = { ideal: 1280 };
+          videoConstraints.height = { ideal: 720 };
+        } else if (resolution === '1080p') {
+          videoConstraints.width = { ideal: 1920 };
+          videoConstraints.height = { ideal: 1080 };
+        }
+      }
+
+      navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: isAudio })
         .then((stream) => {
           setState((s) => ({ ...s, localStream: stream, mediaConnection: call }));
           call.answer(stream);
@@ -140,7 +156,14 @@ export function usePeer() {
       
       setState((s) => ({ ...s, localStream: stream }));
 
-      const call = peer.call(targetId, stream);
+      const call = peer.call(targetId, stream, { 
+        metadata: { 
+          type: 'primary', 
+          video: !!options.video, 
+          audio: !!options.audio,
+          resolution: options.resolution
+        } 
+      });
       setState((s) => ({ ...s, mediaConnection: call }));
 
       call.on('stream', (remoteStream) => {
@@ -214,10 +237,13 @@ export function usePeer() {
       stream.getTracks().forEach(t => t.stop());
     });
 
-    stream.getVideoTracks()[0].onended = () => {
-      call.close();
-      setState(s => ({ ...s, localSecondaryStream: null, secondaryConnection: null }));
-    };
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.onended = () => {
+        call.close();
+        setState(s => ({ ...s, localSecondaryStream: null, secondaryConnection: null }));
+      };
+    }
   };
 
   const stopSecondaryStream = () => {

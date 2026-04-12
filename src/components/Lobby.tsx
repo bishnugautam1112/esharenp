@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Users, Video, FileUp, ArrowRight, User, Clock } from 'lucide-react';
+import { Copy, Users, Video, FileUp, ArrowRight, User, Clock, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface LobbyProps {
@@ -13,11 +13,18 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
   const [username, setUsername] = useState('');
   const [targetId, setTargetId] = useState('');
   const [copied, setCopied] = useState(false);
-  const [lastConnected, setLastConnected] = useState<string | null>(null);
+  const [recentConnections, setRecentConnections] = useState<string[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('lastConnectedPeer');
-    if (saved) setLastConnected(saved);
+    const saved = localStorage.getItem('recentConnections');
+    if (saved) {
+      try {
+        setRecentConnections(JSON.parse(saved));
+      } catch (e) {}
+    } else {
+      const last = localStorage.getItem('lastConnectedPeer');
+      if (last) setRecentConnections([last]);
+    }
   }, []);
 
   const handleCopy = () => {
@@ -28,8 +35,11 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
 
   const handleJoin = (id: string) => {
     if (id.trim()) {
-      localStorage.setItem('lastConnectedPeer', id.trim());
-      onJoin(id.trim());
+      const newId = id.trim();
+      const updated = [newId, ...recentConnections.filter(c => c !== newId)].slice(0, 5);
+      setRecentConnections(updated);
+      localStorage.setItem('recentConnections', JSON.stringify(updated));
+      onJoin(newId);
     }
   };
 
@@ -42,10 +52,10 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-2xl shadow-blue-500/20">
-              <Users className="w-8 h-8 text-white" />
+              <MessageSquare className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold tracking-tight mb-3 text-white">esharenp</h1>
-            <p className="text-neutral-400 text-lg">Peer-to-peer file sharing & communication</p>
+            <h1 className="text-4xl font-bold tracking-tight mb-3 text-white">KuraKani app</h1>
+            <p className="text-neutral-400 text-lg">Peer-to-peer messaging & calls</p>
           </div>
 
           <div className="bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-8 shadow-2xl">
@@ -111,7 +121,7 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
                     <div className="w-full border-t border-neutral-800"></div>
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-neutral-900 px-4 text-neutral-500 font-medium tracking-wider">Or connect to</span>
+                    <span className="bg-neutral-900 px-4 text-neutral-500 font-medium tracking-wider">Connect</span>
                   </div>
                 </div>
 
@@ -131,65 +141,46 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
                       disabled={!targetId}
                       className="bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Connect
+                      Chat
                     </button>
                   </div>
-                  {lastConnected && (
-                    <div className="pt-2">
-                      <button 
-                        onClick={() => handleJoin(lastConnected)}
-                        className="flex items-center gap-2 text-xs text-neutral-400 hover:text-white transition-colors bg-neutral-900/50 border border-white/5 px-3 py-2 rounded-lg"
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        Connect to last: <span className="font-medium text-blue-400">{lastConnected}</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
+
+                {/* Recent Connections */}
+                {recentConnections.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <label className="text-sm font-medium text-neutral-300">Recent Friends</label>
+                    <div className="flex flex-col gap-2">
+                      {recentConnections.map(conn => (
+                        <button 
+                          key={conn}
+                          onClick={() => handleJoin(conn)}
+                          className="flex items-center justify-between text-sm text-neutral-300 hover:text-white transition-colors bg-neutral-950 border border-neutral-800 hover:border-neutral-700 px-4 py-3 rounded-xl group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-medium">
+                              {conn.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-medium">{conn}</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-blue-400" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 text-center pt-4">
-            <div className="flex flex-col items-center gap-3 text-neutral-400">
-              <div className="w-12 h-12 rounded-2xl bg-neutral-900/50 border border-white/5 flex items-center justify-center">
-                <FileUp className="w-5 h-5 text-blue-400" />
-              </div>
-              <span className="text-xs font-medium">File Transfer</span>
-            </div>
-            <div className="flex flex-col items-center gap-3 text-neutral-400">
-              <div className="w-12 h-12 rounded-2xl bg-neutral-900/50 border border-white/5 flex items-center justify-center">
-                <Users className="w-5 h-5 text-purple-400" />
-              </div>
-              <span className="text-xs font-medium">P2P Chat</span>
-            </div>
-            <div className="flex flex-col items-center gap-3 text-neutral-400">
-              <div className="w-12 h-12 rounded-2xl bg-neutral-900/50 border border-white/5 flex items-center justify-center">
-                <Video className="w-5 h-5 text-green-400" />
-              </div>
-              <span className="text-xs font-medium">Voice & Video</span>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="w-full py-8 text-center z-10 border-t border-white/5 bg-neutral-950/50 backdrop-blur-md">
-        <div className="max-w-2xl mx-auto px-4 space-y-3">
+      <footer className="w-full py-6 text-center z-10 border-t border-white/5 bg-neutral-950/50 backdrop-blur-md">
+        <div className="max-w-2xl mx-auto px-4 space-y-2">
           <p className="text-sm text-neutral-400">
-            Developed by <span className="text-white font-medium">Bishnu Gautam</span>
+            Made with <span className="text-red-500">❤️</span> and developed by <span className="text-white font-medium">Bishnu Gautam</span>
           </p>
-          <p className="text-xs text-neutral-500">
-            BE Computer Student at Pokhara University
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-neutral-500 mt-4">
-            <span className="mr-2">Tech Stack:</span>
-            <span className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-lg">React</span>
-            <span className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-lg">WebRTC</span>
-            <span className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-lg">PeerJS</span>
-            <span className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-lg">Tailwind CSS</span>
-            <span className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded-lg">Vite</span>
-          </div>
         </div>
       </footer>
     </div>

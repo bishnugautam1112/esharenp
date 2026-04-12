@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Send, File, Download, Video, VideoOff, PhoneOff, FileUp, MonitorUp, X, Maximize, Minimize, Mic, MicOff, Camera, CameraOff, FileVideo, Link } from 'lucide-react';
+import { Send, File, Download, Video, VideoOff, Phone, PhoneOff, FileUp, MonitorUp, X, Maximize, Minimize, Mic, MicOff, Camera, CameraOff, FileVideo, Link, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { usePeer } from '../lib/usePeer';
 
@@ -7,7 +7,7 @@ interface RoomProps {
   peerState: ReturnType<typeof usePeer>;
   targetId: string | null;
   onLeave: () => void;
-  onCall: (id: string, video: boolean, audio: boolean) => void;
+  onCall: (id: string, options?: { video?: boolean, audio?: boolean, resolution?: 'default' | '720p' | '1080p', facingMode?: 'user' | 'environment' }) => void;
   onEndCall: () => void;
   onShareScreen: () => void;
 }
@@ -48,8 +48,27 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
   const [screenZoom, setScreenZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [showWatchMenu, setShowWatchMenu] = useState(false);
+  const [callQuality, setCallQuality] = useState<'default' | '720p' | '1080p'>('default');
   const [watchUrlInput, setWatchUrlInput] = useState('');
   const [watchUrl, setWatchUrl] = useState<string | null>(null);
+
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetControlsTimeout = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    resetControlsTimeout();
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (screenZoom === 1) {
@@ -382,10 +401,60 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
   const hasSecondary = peerState.localSecondaryStream || peerState.remoteSecondaryStream || isWatchHost || watchUrl || peerState.isScreenSharing;
 
   return (
-    <div className="h-screen bg-neutral-950 text-neutral-50 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="h-screen bg-neutral-950 text-neutral-50 flex flex-col overflow-hidden font-sans">
       
-      {/* Main Content (Video Area) */}
-      <div ref={videoContainerRef} className={cn("flex-1 flex flex-col min-w-0 border-b md:border-b-0 md:border-r border-neutral-800 relative", isFullscreen ? "bg-black" : "bg-neutral-950/50 h-[50vh] md:h-auto")}>
+      {/* Header */}
+      <div className="h-16 border-b border-neutral-800 flex items-center justify-between px-4 md:px-6 bg-neutral-900/80 backdrop-blur-md shrink-0 z-40">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium shadow-inner">
+            {connectedPeerId ? connectedPeerId.substring(0, 2).toUpperCase() : 'P'}
+          </div>
+          <div>
+            <h2 className="font-medium text-white text-sm md:text-base">{connectedPeerId || 'Peer'}</h2>
+            <div className="flex items-center gap-1.5">
+              <div className={cn("w-2 h-2 rounded-full", activeConnection ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]")} />
+              <p className="text-xs text-neutral-400">{activeConnection ? 'Connected' : 'Waiting...'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 md:gap-2">
+          <div className="relative flex items-center bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 mr-2">
+            <Settings className="w-3 h-3 text-neutral-400 mr-1" />
+            <select 
+              value={callQuality}
+              onChange={(e) => setCallQuality(e.target.value as any)}
+              className="bg-transparent text-xs text-neutral-300 outline-none cursor-pointer appearance-none pr-4"
+            >
+              <option value="default">Stable Auto</option>
+              <option value="720p">720p HD</option>
+              <option value="1080p">1080p FHD</option>
+            </select>
+          </div>
+          <button 
+            onClick={() => connectedPeerId && onCall(connectedPeerId, { video: false, audio: true })}
+            disabled={!activeConnection || peerState.mediaConnection !== null}
+            className="p-2 md:p-2.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50"
+            title="Voice Call"
+          >
+            <Phone className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+          <button 
+            onClick={() => connectedPeerId && onCall(connectedPeerId, { video: true, audio: true, resolution: callQuality })}
+            disabled={!activeConnection || peerState.mediaConnection !== null}
+            className="p-2 md:p-2.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50"
+            title="Video Call"
+          >
+            <Video className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+          <div className="w-px h-6 bg-neutral-800 mx-1 md:mx-2" />
+          <button onClick={onLeave} className="text-xs md:text-sm px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg font-medium transition-colors">
+            Leave
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         
         {/* Error Banner */}
         {peerState.error && (
@@ -397,25 +466,16 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
           </div>
         )}
 
-        {/* Header Overlay */}
-        {!isFullscreen && !hasSecondary && (
-          <div className="absolute top-0 left-0 right-0 h-20 flex items-start justify-between px-4 md:px-6 pt-4 bg-gradient-to-b from-black/80 to-transparent z-30 pointer-events-none">
-            <div className="flex items-center gap-3 pointer-events-auto">
-              <div className={cn("w-2.5 h-2.5 rounded-full shadow-[0_0_10px]", activeConnection ? "bg-green-500 shadow-green-500/50" : "bg-yellow-500 shadow-yellow-500/50")} />
-              <span className="font-medium text-sm text-white drop-shadow-md">
-                {activeConnection ? `Connected to ${connectedPeerId}` : 'Waiting for connection...'}
-              </span>
-            </div>
-            <button onClick={onLeave} className="pointer-events-auto text-sm px-4 py-1.5 bg-red-500/80 text-white hover:bg-red-500 rounded-lg font-medium transition-colors shadow-lg backdrop-blur-md">
-              Disconnect
-            </button>
-          </div>
-        )}
-
-        {/* Video Area */}
-        <div className={cn("flex-1 flex flex-col overflow-hidden relative bg-black", isFullscreen ? "p-0" : "")}>
-          {peerState.mediaConnection || peerState.localStream ? (
-            <div className="relative w-full h-full">
+        {/* Video Area (Only visible when active) */}
+        {(peerState.mediaConnection || peerState.localStream || hasSecondary) && (
+          <div 
+            ref={videoContainerRef} 
+            className={cn("flex flex-col min-w-0 border-b md:border-b-0 md:border-r border-neutral-800 relative transition-all duration-300", isFullscreen ? "bg-black fixed inset-0 z-50" : "bg-black h-[40vh] md:h-auto md:flex-1")}
+            onMouseMove={resetControlsTimeout}
+            onMouseEnter={resetControlsTimeout}
+          >
+            <div className={cn("flex-1 flex flex-col overflow-hidden relative bg-black", isFullscreen ? "p-0" : "")}>
+              <div className="relative w-full h-full">
               {/* MAIN AREA */}
               {hasSecondary ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
@@ -451,7 +511,11 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
 
                    {/* Watch Together Controls */}
                    {(isWatchHost || isWatchClient) && (
-                     <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/80 backdrop-blur-md px-6 py-3 rounded-2xl z-50 border border-white/10">
+                     <div 
+                       className={cn("absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/80 backdrop-blur-md px-6 py-3 rounded-2xl z-50 border border-white/10 transition-all duration-300", showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}
+                       onMouseEnter={() => { setShowControls(true); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); }}
+                       onMouseLeave={resetControlsTimeout}
+                     >
                        <button onClick={() => sendWatchControl('seek', -10)} className="text-white hover:text-blue-400">-10s</button>
                        <button onClick={() => sendWatchControl('togglePlay')} className="text-white hover:text-blue-400 font-medium px-4">Play / Pause</button>
                        <button onClick={() => sendWatchControl('seek', 10)} className="text-white hover:text-blue-400">+10s</button>
@@ -500,55 +564,14 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-neutral-800 rounded-3xl bg-neutral-900/20 m-4">
-              <div className="text-center space-y-5">
-                <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center mx-auto text-neutral-400 shadow-inner">
-                  <Video className="w-10 h-10" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-medium text-white">Start a Call</h3>
-                  <p className="text-sm text-neutral-400 mt-1">Connect with voice and video</p>
-                </div>
-                <div className="flex justify-center gap-3 pt-2">
-                  <button 
-                    onClick={() => connectedPeerId && onCall(connectedPeerId, true, true)}
-                    disabled={!activeConnection}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 shadow-lg shadow-blue-500/20"
-                  >
-                    Video Call
-                  </button>
-                  <button 
-                    onClick={() => connectedPeerId && onCall(connectedPeerId, false, true)}
-                    disabled={!activeConnection}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
-                  >
-                    Voice Only
-                  </button>
-                </div>
-                <div className="pt-4">
-                  <button 
-                    onClick={() => setShowAdvancedCall(!showAdvancedCall)}
-                    className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
-                  >
-                    {showAdvancedCall ? 'Hide Advanced Options' : 'Show Advanced Options'}
-                  </button>
-                  {showAdvancedCall && (
-                    <div className="mt-4 flex flex-wrap justify-center gap-2">
-                      <button onClick={() => connectedPeerId && peerState.callPeer(connectedPeerId, { video: { width: 640, height: 480, frameRate: 15 }, audio: true })} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs border border-green-500/30 text-green-400">Stable Super Mode</button>
-                      <button onClick={() => connectedPeerId && peerState.callPeer(connectedPeerId, { video: true, audio: true, resolution: '720p' })} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs">720p Call</button>
-                      <button onClick={() => connectedPeerId && peerState.callPeer(connectedPeerId, { video: true, audio: true, resolution: '1080p' })} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs">1080p Call</button>
-                      <button onClick={() => connectedPeerId && peerState.callPeer(connectedPeerId, { video: true, audio: true, facingMode: 'environment' })} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs">Back Camera</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Call Controls Overlay */}
           {(peerState.mediaConnection || peerState.localStream) && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 bg-neutral-900/90 backdrop-blur-md px-4 md:px-6 py-3 rounded-2xl border border-white/10 shadow-2xl z-50">
+            <div 
+              className={cn("absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 bg-neutral-900/90 backdrop-blur-md px-4 md:px-6 py-3 rounded-2xl border border-white/10 shadow-2xl z-50 transition-all duration-300", showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}
+              onMouseEnter={() => { setShowControls(true); if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); }}
+              onMouseLeave={resetControlsTimeout}
+            >
               <button 
                 onClick={() => {
                   setIsMuted(!isMuted);
@@ -626,11 +649,12 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
           )}
         </div>
       </div>
+    )}
 
       {/* Sidebar (Chat & Transfers) */}
-      <div className="w-full md:w-96 flex flex-col bg-neutral-900/30 h-[50vh] md:h-auto">
-        <div className="h-16 border-b border-neutral-800 flex items-center justify-between px-6 bg-neutral-900/50 backdrop-blur-md">
-          <h2 className="font-medium text-white">Chat & Files</h2>
+      <div className={cn("flex flex-col bg-neutral-900/30 transition-all duration-300", (peerState.mediaConnection || peerState.localStream || hasSecondary) ? "w-full md:w-96 h-[50vh] md:h-auto" : "flex-1")}>
+        <div className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 md:px-6 bg-neutral-900/50 backdrop-blur-md">
+          <h2 className="font-medium text-white text-sm">Chat & Files</h2>
           <div className="flex items-center gap-2 relative">
             <input type="file" accept="video/*" ref={watchTogetherInputRef} onChange={startLocalWatch} className="hidden" />
             <button 
@@ -786,5 +810,6 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall, onShareS
         </div>
       </div>
     </div>
+  </div>
   );
 }
