@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Copy, Users, Video, FileUp, ArrowRight, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Users, Video, FileUp, ArrowRight, User, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface LobbyProps {
@@ -13,11 +13,24 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
   const [username, setUsername] = useState('');
   const [targetId, setTargetId] = useState('');
   const [copied, setCopied] = useState(false);
+  const [lastConnected, setLastConnected] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('lastConnectedPeer');
+    if (saved) setLastConnected(saved);
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(peerId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleJoin = (id: string) => {
+    if (id.trim()) {
+      localStorage.setItem('lastConnectedPeer', id.trim());
+      onJoin(id.trim());
+    }
   };
 
   return (
@@ -114,13 +127,24 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
                       className="flex-1 bg-neutral-950 border border-neutral-800 px-4 py-3.5 rounded-xl text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                     />
                     <button
-                      onClick={() => targetId && onJoin(targetId)}
+                      onClick={() => targetId && handleJoin(targetId)}
                       disabled={!targetId}
                       className="bg-white text-black hover:bg-neutral-200 px-6 py-3.5 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Connect
                     </button>
                   </div>
+                  {lastConnected && (
+                    <div className="pt-2">
+                      <button 
+                        onClick={() => handleJoin(lastConnected)}
+                        className="flex items-center gap-2 text-xs text-neutral-400 hover:text-white transition-colors bg-neutral-900/50 border border-white/5 px-3 py-2 rounded-lg"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        Connect to last: <span className="font-medium text-blue-400">{lastConnected}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
