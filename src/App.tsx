@@ -38,9 +38,17 @@ export default function App() {
         onLeave={handleLeave}
         onCall={peerState.callPeer}
         onEndCall={peerState.endCall}
+        onShareScreen={peerState.shareScreen}
       />
     );
   }
 
-  return <Lobby peerId={peerState.peerId} onJoin={handleJoin} />;
+  return (
+    <Lobby 
+      peerId={peerState.peerId} 
+      onInitialize={peerState.initialize} 
+      onJoin={handleJoin} 
+      error={peerState.error}
+    />
+  );
 }

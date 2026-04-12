@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Peer, { DataConnection, MediaConnection } from 'peerjs';
 
 export type PeerState = {
@@ -9,6 +9,7 @@ export type PeerState = {
   remoteStream: MediaStream | null;
   localStream: MediaStream | null;
   error: string | null;
+  isScreenSharing: boolean;
 };
 
 export function usePeer() {
@@ -20,16 +21,17 @@ export function usePeer() {
     remoteStream: null,
     localStream: null,
     error: null,
+    isScreenSharing: false,
   });
 
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  useEffect(() => {
-    const newPeer = new Peer();
+  const initialize = useCallback((id: string) => {
+    const newPeer = new Peer(id);
 
-    newPeer.on('open', (id) => {
-      setState((s) => ({ ...s, peer: newPeer, peerId: id }));
+    newPeer.on('open', (openedId) => {
+      setState((s) => ({ ...s, peer: newPeer, peerId: openedId, error: null }));
     });
 
     newPeer.on('connection', (conn) => {
@@ -45,9 +47,6 @@ export function usePeer() {
     });
 
     newPeer.on('call', (call) => {
-      // Answer automatically if we already have a local stream, or prompt?
-      // For simplicity, we'll answer without a stream initially, then add it if needed,
-      // or we can request media here. Let's request media automatically for now.
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then((stream) => {
           setState((s) => ({ ...s, localStream: stream, mediaConnection: call }));
@@ -56,12 +55,11 @@ export function usePeer() {
             setState((s) => ({ ...s, remoteStream }));
           });
           call.on('close', () => {
-            setState((s) => ({ ...s, remoteStream: null, mediaConnection: null }));
+            setState((s) => ({ ...s, remoteStream: null, mediaConnection: null, isScreenSharing: false }));
           });
         })
         .catch((err) => {
           console.error('Failed to get local stream', err);
-          // Answer without stream
           call.answer();
           setState((s) => ({ ...s, mediaConnection: call }));
           call.on('stream', (remoteStream) => {
@@ -114,10 +112,55 @@ export function usePeer() {
       });
       
       call.on('close', () => {
-         setState((s) => ({ ...s, remoteStream: null, mediaConnection: null }));
+         setState((s) => ({ ...s, remoteStream: null, mediaConnection: null, isScreenSharing: false }));
       });
     } catch (err: any) {
       setState((s) => ({ ...s, error: err.message }));
+    }
+  };
+
+  const shareScreen = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const videoTrack = stream.getVideoTracks()[0];
+      
+      const { mediaConnection, localStream } = stateRef.current;
+      
+      if (mediaConnection) {
+        const sender = mediaConnection.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      }
+      
+      // Keep audio from localStream if it exists
+      if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+          stream.addTrack(audioTrack);
+        }
+      }
+
+      setState(s => ({ ...s, localStream: stream, isScreenSharing: true }));
+
+      videoTrack.onended = async () => {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          const camTrack = camStream.getVideoTracks()[0];
+          if (stateRef.current.mediaConnection) {
+            const sender = stateRef.current.mediaConnection.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(camTrack);
+            }
+          }
+          setState(s => ({ ...s, localStream: camStream, isScreenSharing: false }));
+        } catch (e) {
+          console.error("Failed to revert to camera", e);
+          setState(s => ({ ...s, isScreenSharing: false }));
+        }
+      };
+    } catch (err) {
+      console.error("Error sharing screen:", err);
     }
   };
 
@@ -129,14 +172,16 @@ export function usePeer() {
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
-    setState(s => ({ ...s, mediaConnection: null, localStream: null, remoteStream: null }));
+    setState(s => ({ ...s, mediaConnection: null, localStream: null, remoteStream: null, isScreenSharing: false }));
   };
 
   return {
     ...state,
     setState,
+    initialize,
     connectToPeer,
     callPeer,
+    shareScreen,
     endCall,
   };
 }
