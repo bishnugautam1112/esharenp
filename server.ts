@@ -3,7 +3,6 @@ import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
-import { GoogleGenAI } from '@google/genai';
 
 async function startServer() {
   const app = express();
@@ -18,46 +17,6 @@ async function startServer() {
   });
 
   app.use(express.json());
-
-  // AI Endpoint for Gemini
-  app.post('/api/ai/chat', async (req, res) => {
-    try {
-      const { messages, mode } = req.body;
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      let responseText = '';
-      if (mode === 'thinking') {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
-          contents: messages,
-          config: {
-            thinkingConfig: { thinkingLevel: 'HIGH' },
-          }
-        });
-        responseText = response.text;
-      } else if (mode === 'search') {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: messages,
-          config: {
-            tools: [{ googleSearch: {} }]
-          }
-        });
-        responseText = response.text;
-      } else {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: messages,
-        });
-        responseText = response.text;
-      }
-      
-      res.json({ text: responseText });
-    } catch (error: any) {
-      console.error('AI Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   // Socket.io Signaling
   io.on('connection', (socket) => {

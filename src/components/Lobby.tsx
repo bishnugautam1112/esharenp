@@ -23,6 +23,7 @@ export function Lobby({ peerId, onJoin }: LobbyProps) {
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight mb-2 text-white">esharenp</h1>
           <p className="text-neutral-400">Peer-to-peer file sharing & communication</p>
+          <p className="text-sm text-blue-400 mt-2 font-medium">Developed by Bishnu Gautam</p>
         </div>
 
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-6 shadow-xl">

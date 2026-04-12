@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { DataConnection } from 'peerjs';
-import { Send, File, Download, Search, BrainCircuit, X, Video, Mic, MicOff, VideoOff, PhoneOff } from 'lucide-react';
+import { Send, File, Download, X, Video, Mic, MicOff, VideoOff, PhoneOff, FileUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PeerState } from '../lib/usePeer';
 
@@ -14,7 +14,7 @@ interface RoomProps {
 
 type Message = {
   id: string;
-  sender: 'me' | 'peer' | 'ai';
+  sender: 'me' | 'peer';
   text?: string;
   file?: { name: string; size: number; data: ArrayBuffer; type: string };
   timestamp: number;
@@ -23,8 +23,6 @@ type Message = {
 export function Room({ peerState, targetId, onLeave, onCall, onEndCall }: RoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [aiMode, setAiMode] = useState<'none' | 'thinking' | 'search'>('none');
-  const [isAiTyping, setIsAiTyping] = useState(false);
   
   const activeConnection = peerState.connections[0];
   const connectedPeerId = activeConnection?.peer || targetId;
@@ -68,51 +66,19 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall }: RoomPr
   }, [activeConnection]);
 
   const sendMessage = () => {
-    if (!input.trim() && aiMode === 'none') return;
+    if (!input.trim() || !activeConnection) return;
     
     const text = input.trim();
     setInput('');
 
-    if (aiMode !== 'none') {
-      // Send to AI
-      setMessages(prev => [...prev, { id: Math.random().toString(), sender: 'me', text, timestamp: Date.now() }]);
-      handleAiQuery(text);
-    } else if (activeConnection && text) {
-      // Send to Peer
-      activeConnection.send({ type: 'text', content: text });
-      setMessages(prev => [...prev, { id: Math.random().toString(), sender: 'me', text, timestamp: Date.now() }]);
-    }
-  };
-
-  const handleAiQuery = async (query: string) => {
-    setIsAiTyping(true);
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', parts: [{ text: query }] }],
-          mode: aiMode
-        })
-      });
-      const data = await res.json();
-      if (data.text) {
-        setMessages(prev => [...prev, { id: Math.random().toString(), sender: 'ai', text: data.text, timestamp: Date.now() }]);
-      }
-    } catch (err) {
-      console.error(err);
-      setMessages(prev => [...prev, { id: Math.random().toString(), sender: 'ai', text: 'Error connecting to AI.', timestamp: Date.now() }]);
-    } finally {
-      setIsAiTyping(false);
-    }
+    activeConnection.send({ type: 'text', content: text });
+    setMessages(prev => [...prev, { id: Math.random().toString(), sender: 'me', text, timestamp: Date.now() }]);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeConnection) return;
 
-    // For simplicity in this demo, we send the file as an ArrayBuffer directly.
-    // In a production app, you'd chunk it for files > 16MB (WebRTC limit).
     const reader = new FileReader();
     reader.onload = (event) => {
       const arrayBuffer = event.target?.result as ArrayBuffer;
@@ -222,37 +188,18 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall }: RoomPr
         </div>
       </div>
 
-      {/* Sidebar (Chat & AI) */}
+      {/* Sidebar (Chat) */}
       <div className="w-96 flex flex-col bg-neutral-900/50">
-        <div className="h-16 border-b border-neutral-800 flex items-center px-4 gap-2">
-          <button 
-            onClick={() => setAiMode('none')}
-            className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-1", aiMode === 'none' ? "bg-neutral-800 text-white" : "text-neutral-400 hover:text-neutral-200")}
-          >
-            Peer Chat
-          </button>
-          <button 
-            onClick={() => setAiMode('thinking')}
-            className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-1 flex items-center justify-center gap-1.5", aiMode === 'thinking' ? "bg-purple-500/20 text-purple-400" : "text-neutral-400 hover:text-neutral-200")}
-          >
-            <BrainCircuit className="w-4 h-4" /> Deep Think
-          </button>
-          <button 
-            onClick={() => setAiMode('search')}
-            className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-1 flex items-center justify-center gap-1.5", aiMode === 'search' ? "bg-blue-500/20 text-blue-400" : "text-neutral-400 hover:text-neutral-200")}
-          >
-            <Search className="w-4 h-4" /> Search
-          </button>
+        <div className="h-16 border-b border-neutral-800 flex items-center px-6">
+          <h2 className="font-medium text-white">Peer Chat</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.filter(m => aiMode === 'none' ? (m.sender === 'me' || m.sender === 'peer') : (m.sender === 'me' || m.sender === 'ai')).map(msg => (
+          {messages.map(msg => (
             <div key={msg.id} className={cn("flex flex-col max-w-[85%]", msg.sender === 'me' ? "ml-auto items-end" : "mr-auto items-start")}>
               <div className={cn(
                 "px-4 py-2.5 rounded-2xl text-sm",
-                msg.sender === 'me' ? "bg-blue-600 text-white rounded-br-sm" : 
-                msg.sender === 'ai' ? "bg-purple-900/50 border border-purple-500/30 text-purple-50 rounded-bl-sm" :
-                "bg-neutral-800 text-neutral-100 rounded-bl-sm"
+                msg.sender === 'me' ? "bg-blue-600 text-white rounded-br-sm" : "bg-neutral-800 text-neutral-100 rounded-bl-sm"
               )}>
                 {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
                 {msg.file && (
@@ -277,31 +224,18 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall }: RoomPr
               </span>
             </div>
           ))}
-          {isAiTyping && (
-            <div className="mr-auto items-start flex flex-col max-w-[85%]">
-              <div className="px-4 py-3 rounded-2xl bg-purple-900/30 border border-purple-500/20 rounded-bl-sm flex gap-1.5">
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" />
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="p-4 bg-neutral-900 border-t border-neutral-800">
           <div className="flex items-end gap-2">
-            {aiMode === 'none' && (
-              <>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!activeConnection}
-                  className="p-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                  <FileUp className="w-5 h-5" />
-                </button>
-              </>
-            )}
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!activeConnection}
+              className="p-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              <FileUp className="w-5 h-5" />
+            </button>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -311,13 +245,13 @@ export function Room({ peerState, targetId, onLeave, onCall, onEndCall }: RoomPr
                   sendMessage();
                 }
               }}
-              placeholder={aiMode === 'none' ? "Message peer..." : `Ask AI (${aiMode})...`}
+              placeholder="Message peer..."
               className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none max-h-32 min-h-[44px]"
               rows={1}
             />
             <button 
               onClick={sendMessage}
-              disabled={(!input.trim() && aiMode === 'none') || (aiMode === 'none' && !activeConnection)}
+              disabled={!input.trim() || !activeConnection}
               className="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors disabled:opacity-50 flex-shrink-0"
             >
               <Send className="w-5 h-5" />

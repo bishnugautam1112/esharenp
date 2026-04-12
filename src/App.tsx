@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePeer } from './lib/usePeer';
 import { Lobby } from './components/Lobby';
 import { Room } from './components/Room';
@@ -7,6 +7,15 @@ export default function App() {
   const peerState = usePeer();
   const [inRoom, setInRoom] = useState(false);
   const [targetId, setTargetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!inRoom && peerState.connections.length > 0) {
+      setInRoom(true);
+      if (!targetId) {
+        setTargetId(peerState.connections[0].peer);
+      }
+    }
+  }, [inRoom, peerState.connections, targetId]);
 
   const handleJoin = (id: string) => {
     peerState.connectToPeer(id);
@@ -20,11 +29,6 @@ export default function App() {
     setInRoom(false);
     setTargetId(null);
   };
-
-  // If we receive an incoming connection, automatically enter the room
-  if (!inRoom && peerState.connections.length > 0) {
-    setInRoom(true);
-  }
 
   if (inRoom) {
     return (
@@ -40,4 +44,3 @@ export default function App() {
 
   return <Lobby peerId={peerState.peerId} onJoin={handleJoin} />;
 }
-
