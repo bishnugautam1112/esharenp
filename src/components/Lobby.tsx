@@ -123,7 +123,7 @@ export function Lobby({ peerId, onInitialize, onJoin, error }: LobbyProps) {
                 >
                   Continue <ArrowRight className="w-4 h-4" />
                 </button>
-              </div>
+              </motion.div>
             ) : (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
