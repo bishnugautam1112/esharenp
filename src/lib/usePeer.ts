@@ -49,9 +49,9 @@ export function usePeer() {
           { urls: 'stun:stun.voipbuster.com' },
           { urls: 'stun:stun.voipstunt.com' },
           { urls: 'stun:stun.voxgratia.org' },
-          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+          { urls: 'turn:global.relay.metered.ca:80', username: '1dc839b5cdfd08b68c9db90b', credential: 'GFw/KBTncK1q46To' },
+          { urls: 'turn:global.relay.metered.ca:443', username: '1dc839b5cdfd08b68c9db90b', credential: 'GFw/KBTncK1q46To' },
+          { urls: 'turn:global.relay.metered.ca:443?transport=tcp', username: '1dc839b5cdfd08b68c9db90b', credential: 'GFw/KBTncK1q46To' }
         ],
         sdpSemantics: 'unified-plan'
       }
