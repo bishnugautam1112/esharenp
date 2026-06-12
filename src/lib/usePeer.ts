@@ -42,8 +42,18 @@ export function usePeer() {
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:global.stun.twilio.com:3478' },
           { urls: 'stun:stun.cloudflare.com:3478' },
-          { urls: 'stun:stun.miwifi.com:3478' }
-        ]
+          { urls: 'stun:stun.miwifi.com:3478' },
+          { urls: 'stun:stun.ekiga.net' },
+          { urls: 'stun:stun.ideasip.com' },
+          { urls: 'stun:stun.schlund.de' },
+          { urls: 'stun:stun.voipbuster.com' },
+          { urls: 'stun:stun.voipstunt.com' },
+          { urls: 'stun:stun.voxgratia.org' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        ],
+        sdpSemantics: 'unified-plan'
       }
     });
 
