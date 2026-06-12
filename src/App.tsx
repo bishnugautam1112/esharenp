@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usePeer } from './lib/usePeer';
 import { Lobby } from './components/Lobby';
 import { Room } from './components/Room';
+import { ThemeToggle } from './components/ThemeToggle';
 
 export default function App() {
   const peerState = usePeer();
@@ -31,25 +32,28 @@ export default function App() {
     peerState.clearError();
   };
 
-  if (inRoom) {
-    return (
-      <Room 
-        peerState={peerState} 
-        targetId={targetId} 
-        onLeave={handleLeave}
-        onCall={peerState.callPeer}
-        onEndCall={peerState.endCall}
-        onShareScreen={peerState.shareScreen}
-      />
-    );
-  }
-
   return (
-    <Lobby 
-      peerId={peerState.peerId} 
-      onInitialize={peerState.initialize} 
-      onJoin={handleJoin} 
-      error={peerState.error}
-    />
+    <>
+      <div className="absolute top-4 right-4 z-[999]">
+        <ThemeToggle />
+      </div>
+      {inRoom ? (
+        <Room 
+          peerState={peerState} 
+          targetId={targetId} 
+          onLeave={handleLeave}
+          onCall={peerState.callPeer}
+          onEndCall={peerState.endCall}
+          onShareScreen={peerState.shareScreen}
+        />
+      ) : (
+        <Lobby 
+          peerId={peerState.peerId} 
+          onInitialize={peerState.initialize} 
+          onJoin={handleJoin} 
+          error={peerState.error}
+        />
+      )}
+    </>
   );
 }
